@@ -1,0 +1,46 @@
+name: Build & Release Password Vault
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux GTK/WebKit dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev zip
+
+      - name: Build Frontend & Binaries
+        run: |
+          npm ci
+          npm run build:all
+
+      - name: Package Firefox/Zen Browser Extension (.xpi)
+        run: |
+          cd browser-extension
+          zip -r ../password-vault-firefox.xpi manifest.json background.js content.js popup.html popup.js
+
+      - name: Upload Release Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: password-vault-linux-x64
+          path: |
+            target/release/password-vault-desktop
+            target/release/vault-native-host
+            password-vault-firefox.xpi
